@@ -1,18 +1,29 @@
 # makefile for building Lua
 # see ../INSTALL for installation instructions
 # see ../Makefile and luaconf.h for further customization
+#
+# Modified for Dungeon Crawl Reference.
 
 # == CHANGE THE SETTINGS BELOW TO SUIT YOUR ENVIRONMENT =======================
 
 # Your platform. See PLATS for possible values.
 PLAT= none
 
-CC= gcc
-CFLAGS= -O2 -Wall $(MYCFLAGS)
-AR= ar rcu
-RANLIB= ranlib
-RM= rm -f
-LIBS= -lm $(MYLIBS)
+ifneq ($(findstring $(MAKEFLAGS),s),s)
+ifndef V
+        QUIET_CC       = @echo '   ' CC $@;
+        QUIET_AR       = @echo '   ' AR $@;
+        QUIET_LINK     = @echo '   ' LINK $@;
+        export V
+endif
+endif
+
+CC ?= gcc
+CFLAGS ?= -O2 -Wall
+AR ?= ar rcu
+RANLIB = ranlib
+RM ?= rm -f
+LIBS = -lm $(MYLIBS)
 
 MYCFLAGS=
 MYLDFLAGS=
@@ -20,7 +31,8 @@ MYLIBS=
 
 # == END OF USER SETTINGS. NO NEED TO CHANGE ANYTHING BELOW THIS LINE =========
 
-PLATS= aix ansi bsd freebsd generic linux macosx mingw posix solaris
+PLATS= aix ansi bsd freebsd generic linux macosx mingw posix solaris \
+		crawl_dos crawl_unix crawl_mingw
 
 LUA_A=	liblua.a
 CORE_O=	lapi.o lcode.o ldebug.o ldo.o ldump.o lfunc.o lgc.o llex.o lmem.o \
@@ -43,22 +55,28 @@ default: $(PLAT)
 
 all:	$(ALL_T)
 
+%.o: %.c
+	$(QUIET_CC)$(CC) -c $(CFLAGS) -o $@ $<
+
 o:	$(ALL_O)
 
 a:	$(ALL_A)
 
 $(LUA_A): $(CORE_O) $(LIB_O)
-	$(AR) $@ $?
-	$(RANLIB) $@
+	$(QUIET_AR)$(AR) $@ $?
+	@$(RANLIB) $@
 
 $(LUA_T): $(LUA_O) $(LUA_A)
-	$(CC) -o $@ $(MYLDFLAGS) $(LUA_O) $(LUA_A) $(LIBS)
+	$(QUIET_LINK)$(CC) -o $@ $(MYLDFLAGS) $(LUA_O) $(LUA_A) $(LIBS)
 
 $(LUAC_T): $(LUAC_O) $(LUA_A)
-	$(CC) -o $@ $(MYLDFLAGS) $(LUAC_O) $(LUA_A) $(LIBS)
+	$(QUIET_LINK)$(CC) -o $@ $(MYLDFLAGS) $(LUAC_O) $(LUA_A) $(LIBS)
 
 clean:
 	$(RM) $(ALL_T) $(ALL_O)
+
+clean_win:
+	del $(ALL_T) $(ALL_O)
 
 depend:
 	@$(CC) $(CFLAGS) -MM l*.c print.c
@@ -108,6 +126,12 @@ mingw:
 	"AR=$(CC) -shared -o" "RANLIB=strip --strip-unneeded" \
 	"MYCFLAGS=-DLUA_BUILD_AS_DLL" "MYLIBS=" "MYLDFLAGS=-s" lua.exe
 	$(MAKE) "LUAC_T=luac.exe" luac.exe
+
+crawl_unix: liblua.a
+
+crawl_mingw: crawl_unix
+
+crawl_dos: crawl_mingw
 
 posix:
 	$(MAKE) all MYCFLAGS=-DLUA_USE_POSIX
