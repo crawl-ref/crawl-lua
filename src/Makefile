@@ -21,10 +21,7 @@ endif
 
 CC ?= gcc
 CFLAGS ?= -O2 -Wall
-AR ?= ar rcu
-ifeq ($(AR),ar)
-AR := ar rcu
-endif
+AR ?= ar
 RANLIB = ranlib
 RM ?= rm -f
 LIBS = -lm $(MYLIBS)
@@ -76,7 +73,7 @@ o:	$(ALL_O)
 a:	$(ALL_A)
 
 $(LUA_A): $(CORE_O) $(LIB_O)
-	$(QUIET_AR)$(AR) $@ $?
+	$(QUIET_AR)$(AR) rcu $@ $?
 	@$(RANLIB) $@
 
 $(LUA_T): $(LUA_O) $(LUA_A)
@@ -89,13 +86,15 @@ $(includedir)/%.h: %.h
 	-@if [ ! -d $(includedir)  ]; then mkdir -p $(includedir); fi
 	$(QUIET_INSTALL)cp $< $@
 	@chmod 0644 $@
-	
+
 $(libdir)/%.a: %.a
 	-@if [ ! -d $(libdir)  ]; then mkdir -p $(libdir); fi
 	$(QUIET_INSTALL)cp $< $@
 	@chmod 0755 $@
 
 install: $(libdir)/$(LUA_A) $(HEADERS_INST)
+
+distclean: clean
 
 clean:
 	$(RM) $(ALL_T) $(ALL_O)
