@@ -14,6 +14,7 @@ ifndef V
         QUIET_CC       = @echo '   ' CC $@;
         QUIET_AR       = @echo '   ' AR $@;
         QUIET_LINK     = @echo '   ' LINK $@;
+        QUIET_INSTALL  = @echo '   ' INSTALL $<;
         export V
 endif
 endif
@@ -21,15 +22,27 @@ endif
 CC ?= gcc
 CFLAGS ?= -O2 -Wall
 AR ?= ar rcu
+ifeq ($(AR),ar)
+AR := ar rcu
+endif
 RANLIB = ranlib
 RM ?= rm -f
 LIBS = -lm $(MYLIBS)
+prefix ?= /usr/local
 
 MYCFLAGS=
 MYLDFLAGS=
 MYLIBS=
 
 # == END OF USER SETTINGS. NO NEED TO CHANGE ANYTHING BELOW THIS LINE =========
+
+libdir := $(prefix)/lib
+includedir := $(prefix)/include
+
+HEADERS := lua.h luaconf.h lualib.h lauxlib.h
+HEADERS_INST := $(patsubst %,$(includedir)/%,$(HEADERS))
+
+MAN1 =
 
 PLATS= aix ansi bsd freebsd generic linux macosx mingw posix solaris \
 		crawl_dos crawl_unix crawl_mingw
@@ -71,6 +84,18 @@ $(LUA_T): $(LUA_O) $(LUA_A)
 
 $(LUAC_T): $(LUAC_O) $(LUA_A)
 	$(QUIET_LINK)$(CC) -o $@ $(MYLDFLAGS) $(LUAC_O) $(LUA_A) $(LIBS)
+
+$(includedir)/%.h: %.h
+	-@if [ ! -d $(includedir)  ]; then mkdir -p $(includedir); fi
+	$(QUIET_INSTALL)cp $< $@
+	@chmod 0644 $@
+	
+$(libdir)/%.a: %.a
+	-@if [ ! -d $(libdir)  ]; then mkdir -p $(libdir); fi
+	$(QUIET_INSTALL)cp $< $@
+	@chmod 0755 $@
+
+install: $(libdir)/$(LUA_A) $(HEADERS_INST)
 
 clean:
 	$(RM) $(ALL_T) $(ALL_O)
