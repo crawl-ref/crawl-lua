@@ -13,6 +13,7 @@ ifneq ($(findstring $(MAKEFLAGS),s),s)
 ifndef V
         QUIET_CC       = @echo '   ' CC $@;
         QUIET_AR       = @echo '   ' AR $@;
+        QUIET_RANLIB   = @echo '   ' RANLIB $@;
         QUIET_LINK     = @echo '   ' LINK $@;
         QUIET_INSTALL  = @echo '   ' INSTALL $<;
         export V
@@ -22,7 +23,7 @@ endif
 CC ?= gcc
 CFLAGS ?= -O2 -Wall
 AR ?= ar
-RANLIB = ranlib
+RANLIB ?= ranlib
 RM ?= rm -f
 LIBS = -lm $(MYLIBS)
 prefix ?= /usr/local
@@ -74,7 +75,7 @@ a:	$(ALL_A)
 
 $(LUA_A): $(CORE_O) $(LIB_O)
 	$(QUIET_AR)$(AR) rcu $@ $?
-	@$(RANLIB) $@
+	$(QUIET_RANLIB)$(RANLIB) $@
 
 $(LUA_T): $(LUA_O) $(LUA_A)
 	$(QUIET_LINK)$(CC) -o $@ $(MYLDFLAGS) $(LUA_O) $(LUA_A) $(LIBS)
