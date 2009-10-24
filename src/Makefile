@@ -91,7 +91,7 @@ $(includedir)/%.h: %.h
 $(libdir)/%.a: %.a
 	-@if [ ! -d $(libdir)  ]; then mkdir -p $(libdir); fi
 	$(QUIET_INSTALL)cp $< $@
-	@chmod 0755 $@
+	@chmod 0644 $@
 
 install: $(libdir)/$(LUA_A) $(HEADERS_INST)
 
