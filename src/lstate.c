@@ -22,6 +22,7 @@
 #include "lstring.h"
 #include "ltable.h"
 #include "ltm.h"
+#include "ljit.h"
 
 
 #define state_size(x)	(sizeof(x) + LUAI_EXTRASPACE)
@@ -78,6 +79,7 @@ static void f_luaopen (lua_State *L, void *ud) {
   luaX_init(L);
   luaS_fix(luaS_newliteral(L, MEMERRMSG));
   g->GCthreshold = 4*g->totalbytes;
+  luaJIT_initstate(L);
 }
 
 
@@ -93,7 +95,7 @@ static void preinit_state (lua_State *L, global_State *g) {
   resethookcount(L);
   L->openupval = NULL;
   L->size_ci = 0;
-  L->nCcalls = L->baseCcalls = 0;
+  L->nCcalls = 0;
   L->status = 0;
   L->base_ci = L->ci = NULL;
   L->savedpc = NULL;
@@ -106,6 +108,7 @@ static void close_state (lua_State *L) {
   global_State *g = G(L);
   luaF_close(L, L->stack);  /* close all upvalues for this thread */
   luaC_freeall(L);  /* collect all objects */
+  luaJIT_freestate(L);
   lua_assert(g->rootgc == obj2gco(L));
   lua_assert(g->strt.nuse == 0);
   luaM_freearray(L, G(L)->strt.hash, G(L)->strt.size, TString *);
@@ -178,6 +181,7 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   g->gcpause = LUAI_GCPAUSE;
   g->gcstepmul = LUAI_GCMUL;
   g->gcdept = 0;
+  g->jit_state = NULL;
   for (i=0; i<NUM_TAGS; i++) g->mt[i] = NULL;
   if (luaD_rawrunprotected(L, f_luaopen, NULL) != 0) {
     /* memory allocation error: free partial state */
@@ -205,7 +209,7 @@ LUA_API void lua_close (lua_State *L) {
   do {  /* repeat until no more errors */
     L->ci = L->base_ci;
     L->base = L->top = L->ci->base;
-    L->nCcalls = L->baseCcalls = 0;
+    L->nCcalls = 0;
   } while (luaD_rawrunprotected(L, callallgcTM, NULL) != 0);
   lua_assert(G(L)->tmudata == NULL);
   luai_userstateclose(L);

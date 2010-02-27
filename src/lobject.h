@@ -60,6 +60,7 @@ typedef union {
   GCObject *gc;
   void *p;
   lua_Number n;
+  ptrdiff_t na[sizeof(lua_Number)/sizeof(ptrdiff_t)];  /* LuaJIT kludge */
   int b;
 } Value;
 
@@ -72,7 +73,7 @@ typedef union {
 
 typedef struct lua_TValue {
   TValuefields;
-} TValue;
+} LUA_TVALUE_ALIGN TValue;
 
 
 /* Macros to test type */
@@ -250,6 +251,10 @@ typedef struct Proto {
   lu_byte numparams;
   lu_byte is_vararg;
   lu_byte maxstacksize;
+  /* LuaJIT extensions */
+  void *jit_mcode;  /* compiled machine code base address */
+  size_t jit_szmcode;  /* size of compiled mcode */
+  int jit_status;  /* JIT engine status code */
 } Proto;
 
 
@@ -290,7 +295,7 @@ typedef struct UpVal {
 
 #define ClosureHeader \
 	CommonHeader; lu_byte isC; lu_byte nupvalues; GCObject *gclist; \
-	struct Table *env
+	struct Table *env; lua_CFunction jit_gate
 
 typedef struct CClosure {
   ClosureHeader;

@@ -294,9 +294,6 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 #define lua_Chunkwriter		lua_Writer
 
 
-/* hack */
-LUA_API void lua_setlevel	(lua_State *from, lua_State *to);
-
 
 /*
 ** {======================================================================

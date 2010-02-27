@@ -16,7 +16,7 @@ INSTALL_LIB= $(INSTALL_TOP)/lib
 INSTALL_MAN= $(INSTALL_TOP)/man/man1
 #
 # You probably want to make INSTALL_LMOD and INSTALL_CMOD consistent with
-# LUA_ROOT, LUA_LDIR, and LUA_CDIR in luaconf.h (and also with etc/lua.pc).
+# LUA_ROOT, LUA_LDIR, and LUA_CDIR in luaconf.h (and also with etc/luajit.pc).
 INSTALL_LMOD= $(INSTALL_TOP)/share/lua/$V
 INSTALL_CMOD= $(INSTALL_TOP)/lib/lua/$V
 
@@ -38,17 +38,19 @@ RANLIB= ranlib
 # == END OF USER SETTINGS. NO NEED TO CHANGE ANYTHING BELOW THIS LINE =========
 
 # Convenience platforms targets.
-PLATS= aix ansi bsd freebsd generic linux macosx mingw posix solaris
+PLATS= linux bsd macosx solaris mingw cygwin posix generic linux_rl bsd_rl macosx_rl
 
 # What to install.
-TO_BIN= lua luac
-TO_INC= lua.h luaconf.h lualib.h lauxlib.h ../etc/lua.hpp
-TO_LIB= liblua.a
-TO_MAN= lua.1 luac.1
+TO_BIN= luajit
+###TO_INC= lua.h luaconf.h lualib.h lauxlib.h ../etc/lua.hpp
+###TO_LIB= liblua.a
+###TO_MAN= lua.1 luac.1
 
 # Lua version and release.
 V= 5.1
 R= 5.1.4
+# LuaJIT version.
+JV= 1.1.5
 
 all:	$(PLAT)
 
@@ -56,27 +58,25 @@ $(PLATS) clean:
 	cd src && $(MAKE) $@
 
 test:	dummy
-	src/lua test/hello.lua
+	src/luajit -O -e 'io.write("Hello world, from ", jit.version, "!\n")'
 
 install: dummy
-	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD)
+	cd src && $(MKDIR) $(INSTALL_BIN) $(INSTALL_INC) $(INSTALL_LIB) $(INSTALL_MAN) $(INSTALL_LMOD) $(INSTALL_CMOD) $(INSTALL_LMOD)/jit
 	cd src && $(INSTALL_EXEC) $(TO_BIN) $(INSTALL_BIN)
-	cd src && $(INSTALL_DATA) $(TO_INC) $(INSTALL_INC)
-	cd src && $(INSTALL_DATA) $(TO_LIB) $(INSTALL_LIB)
-	cd doc && $(INSTALL_DATA) $(TO_MAN) $(INSTALL_MAN)
+	###cd src && $(INSTALL_DATA) $(TO_INC) $(INSTALL_INC)
+	###cd src && $(INSTALL_DATA) $(TO_LIB) $(INSTALL_LIB)
+	###cd doc && $(INSTALL_DATA) $(TO_MAN) $(INSTALL_MAN)
+	cd jit && $(INSTALL_DATA) *.lua $(INSTALL_LMOD)/jit
 
 ranlib:
 	cd src && cd $(INSTALL_LIB) && $(RANLIB) $(TO_LIB)
-
-local:
-	$(MAKE) install INSTALL_TOP=..
 
 none:
 	@echo "Please do"
 	@echo "   make PLATFORM"
 	@echo "where PLATFORM is one of these:"
 	@echo "   $(PLATS)"
-	@echo "See INSTALL for complete instructions."
+	@echo "See jitdoc/luajit_install.html for complete instructions."
 
 # make may get confused with test/ and INSTALL in a case-insensitive OS
 dummy:
@@ -84,11 +84,11 @@ dummy:
 # echo config parameters
 echo:
 	@echo ""
-	@echo "These are the parameters currently set in src/Makefile to build Lua $R:"
+	@echo "These are the parameters currently set in src/Makefile to build LuaJIT $(JV):"
 	@echo ""
 	@cd src && $(MAKE) -s echo
 	@echo ""
-	@echo "These are the parameters currently set in Makefile to install Lua $R:"
+	@echo "These are the parameters currently set in Makefile to install LuaJIT $(JV):"
 	@echo ""
 	@echo "PLAT = $(PLAT)"
 	@echo "INSTALL_TOP = $(INSTALL_TOP)"
@@ -108,6 +108,7 @@ echo:
 pecho:
 	@echo "V = $(V)"
 	@echo "R = $(R)"
+	@echo "JV = $(JV)"
 	@echo "TO_BIN = $(TO_BIN)"
 	@echo "TO_INC = $(TO_INC)"
 	@echo "TO_LIB = $(TO_LIB)"
@@ -116,9 +117,10 @@ pecho:
 # echo config parameters as Lua code
 # uncomment the last sed expression if you want nil instead of empty strings
 lecho:
-	@echo "-- installation parameters for Lua $R"
-	@echo "VERSION = '$V'"
-	@echo "RELEASE = '$R'"
+	@echo "-- installation parameters for Lua $(R), LuaJIT $(JV)"
+	@echo "VERSION = '$(V)'"
+	@echo "RELEASE = '$(R)'"
+	@echo "LUAJIT_VERSION = '$(JV)'"
 	@$(MAKE) echo | grep = | sed -e 's/= /= "/' -e 's/$$/"/' #-e 's/""/nil/'
 	@echo "-- EOF"
 

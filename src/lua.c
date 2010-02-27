@@ -16,6 +16,7 @@
 
 #include "lauxlib.h"
 #include "lualib.h"
+#include "luajit.h"
 
 
 
@@ -45,6 +46,8 @@ static void print_usage (void) {
   "Available options are:\n"
   "  -e stat  execute string " LUA_QL("stat") "\n"
   "  -l name  require library " LUA_QL("name") "\n"
+  "  -j cmd   perform LuaJIT control command\n"
+  "  -O[lvl]  set LuaJIT optimization level\n"
   "  -i       enter interactive mode after executing " LUA_QL("script") "\n"
   "  -v       show version information\n"
   "  --       stop handling options\n"
@@ -110,6 +113,7 @@ static int docall (lua_State *L, int narg, int clear) {
 
 static void print_version (void) {
   l_message(NULL, LUA_RELEASE "  " LUA_COPYRIGHT);
+  l_message(NULL, LUAJIT_VERSION "  " LUAJIT_COPYRIGHT ", " LUAJIT_URL);
 }
 
 
@@ -253,6 +257,58 @@ static int handle_script (lua_State *L, char **argv, int n) {
   return report(L, status);
 }
 
+/* ---- start of LuaJIT extensions */
+
+static int loadjitmodule (lua_State *L, const char *notfound) {
+  lua_getglobal(L, "require");
+  lua_pushliteral(L, "jit.");
+  lua_pushvalue(L, -3);
+  lua_concat(L, 2);
+  if (lua_pcall(L, 1, 1, 0)) {
+    const char *msg = lua_tostring(L, -1);
+    if (msg && !strncmp(msg, "module ", 7)) {
+      l_message(progname, notfound);
+      return 1;
+    }
+    else
+      return report(L, 1);
+  }
+  lua_getfield(L, -1, "start");
+  lua_remove(L, -2);  /* drop module table */
+  return 0;
+}
+
+/* JIT engine control command: try jit library first or load add-on module */
+static int dojitcmd (lua_State *L, const char *cmd) {
+  const char *val = strchr(cmd, '=');
+  lua_pushlstring(L, cmd, val ? val - cmd : strlen(cmd));
+  lua_getglobal(L, "jit");  /* get jit.* table */
+  lua_pushvalue(L, -2);
+  lua_gettable(L, -2);  /* lookup library function */
+  if (!lua_isfunction(L, -1)) {
+    lua_pop(L, 2);  /* drop non-function and jit.* table, keep module name */
+    if (loadjitmodule(L, "unknown luaJIT command"))
+      return 1;
+  }
+  else {
+    lua_remove(L, -2);  /* drop jit.* table */
+  }
+  lua_remove(L, -2);  /* drop module name */
+  if (val) lua_pushstring(L, val+1);
+  return report(L, lua_pcall(L, val ? 1 : 0, 0, 0));
+}
+
+/* start optimizer */
+static int dojitopt (lua_State *L, const char *opt) {
+  lua_pushliteral(L, "opt");
+  if (loadjitmodule(L, "LuaJIT optimizer module not installed"))
+    return 1;
+  lua_remove(L, -2);  /* drop module name */
+  if (*opt) lua_pushstring(L, opt);
+  return report(L, lua_pcall(L, *opt ? 1 : 0, 0, 0));
+}
+
+/* ---- end of LuaJIT extensions */
 
 /* check that argument has no extra characters at the end */
 #define notail(x)	{if ((x)[2] != '\0') return -1;}
@@ -278,12 +334,14 @@ static int collectargs (char **argv, int *pi, int *pv, int *pe) {
         break;
       case 'e':
         *pe = 1;  /* go through */
+      case 'j':  /* LuaJIT extension */
       case 'l':
         if (argv[i][2] == '\0') {
           i++;
           if (argv[i] == NULL) return -1;
         }
         break;
+      case 'O': break;  /* LuaJIT extension */
       default: return -1;  /* invalid option */
     }
   }
@@ -313,6 +371,18 @@ static int runargs (lua_State *L, char **argv, int n) {
           return 1;  /* stop if file fails */
         break;
       }
+      case 'j': {  /* LuaJIT extension */
+        const char *cmd = argv[i] + 2;
+        if (*cmd == '\0') cmd = argv[++i];
+        lua_assert(cmd != NULL);
+        if (dojitcmd(L, cmd))
+          return 1;
+        break;
+      }
+      case 'O':  /* LuaJIT extension */
+        if (dojitopt(L, argv[i] + 2))
+          return 1;
+        break;
       default: break;
     }
   }
@@ -344,6 +414,7 @@ static int pmain (lua_State *L) {
   int has_i = 0, has_v = 0, has_e = 0;
   globalL = L;
   if (argv[0] && argv[0][0]) progname = argv[0];
+  LUAJIT_VERSION_SYM();  /* linker-enforced version check */
   lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */
   luaL_openlibs(L);  /* open libraries */
   lua_gc(L, LUA_GCRESTART, 0);

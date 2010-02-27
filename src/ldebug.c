@@ -27,6 +27,7 @@
 #include "ltable.h"
 #include "ltm.h"
 #include "lvm.h"
+#include "ljit.h"
 
 
 
@@ -34,10 +35,11 @@ static const char *getfuncname (lua_State *L, CallInfo *ci, const char **name);
 
 
 static int currentpc (lua_State *L, CallInfo *ci) {
-  if (!isLua(ci)) return -1;  /* function is not a Lua function? */
-  if (ci == L->ci)
-    ci->savedpc = L->savedpc;
-  return pcRel(ci->savedpc, ci_func(ci)->l.p);
+  if (isLua(ci))  /* must be a Lua function to get current PC */
+    return luaJIT_findpc(ci_func(ci)->l.p,
+                         ci==L->ci ? L->savedpc : ci->savedpc);
+  else
+    return -1;
 }
 
 
